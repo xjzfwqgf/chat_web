@@ -93,20 +93,16 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB 限制
   fileFilter: (req, file, cb) => {
     if (file.mimetype.startsWith('image/')) cb(null, true);
-    else cb(new Error('仅支持图片文件'));
+    else cb(null, false); // 只拒绝，不抛出错误
   }
 });
 
 // 图片上传接口
 app.post('/api/upload', upload.single('file'), (req, res) => {
-  if (!req.file) return res.status(400).json({ message: '未上传文件' });
-  if (!req.file.mimetype.startsWith('image/')) {
-    const fs = require('fs');
-    fs.unlinkSync(req.file.path);
-    return res.status(400).json({ message: '只允许上传图片文件' });
-  }
+  // 只要不是图片，multer 都不会生成 req.file
+  if (!req.file) return res.json({ code: 415, message: '只允许上传图片文件' });
   const url = '/uploads/' + req.file.filename;
-  res.json({ url });
+  res.json({ code: 200, url });
 });
 
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));

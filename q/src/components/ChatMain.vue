@@ -21,6 +21,9 @@ const emojiList = [
 ]
 const showEmoji = ref(false)
 const fileInputRef = ref(null)
+const uploadErrorMsg = ref('')
+const showUploadError = ref(false)
+let uploadErrorTimer = null
 
 function mapMsgFromDB(msg) {
   return {
@@ -123,30 +126,46 @@ function triggerFileInput() {
   fileInputRef.value.click()
 }
 
+function showUploadErrorTip(msg) {
+  uploadErrorMsg.value = msg
+  showUploadError.value = true
+  if (uploadErrorTimer) clearTimeout(uploadErrorTimer)
+  uploadErrorTimer = setTimeout(() => {
+    showUploadError.value = false
+    uploadErrorMsg.value = ''
+  }, 3000)
+}
+
 async function handleFileChange(e) {
   const file = e.target.files[0]
   if (!file) return
-  
+
   const fileData = { 
     name: file.name, 
     size: file.size, 
     type: file.type 
   }
-  
+
   try {
     const form = new FormData()
     form.append('file', file)
     const res = await axios.post('/api/upload', form, {
       headers: { 'Content-Type': 'multipart/form-data' }
     })
+    if (res.data.code !== 200) {
+      showUploadErrorTip(res.data.msg || '文件上传失败')
+      return
+    }
     fileData.url = res.data.url
   } catch (err) {
-    console.error('文件上传失败:', err)
-    alert('文件上传失败')
+    let msg = '文件上传失败'
+    if (err.response && err.response.data && err.response.data.msg) {
+      msg = err.response.data.msg
+    }
+    showUploadErrorTip(msg)
     return
   }
-  
-  // 修复6: 使用 currentUser.value
+
   const msg = {
     from: currentUser.value.username,
     nickname: currentUser.value.nickname,
@@ -154,7 +173,7 @@ async function handleFileChange(e) {
     file: fileData,
     time: getFullTime(),
   }
-  
+
   socket.value.emit('public-message', msg)
   e.target.value = ''
 }
@@ -314,6 +333,13 @@ function getFileUrl(file) {
           发送
         </button>
       </div>
+      <!-- 美化的文件上传错误提示弹窗 -->
+      <transition name="fade">
+        <div v-if="showUploadError" class="fixed left-1/2 top-8 z-50 -translate-x-1/2 bg-blue-500 text-white px-6 py-3 rounded-xl shadow-lg flex items-center gap-2 animate-fade-in drop-shadow-lg min-w-[180px] text-center">
+          <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9 9 4.03 9 9z"/></svg>
+          <span>{{ uploadErrorMsg }}</span>
+        </div>
+      </transition>
     </div>
   </div>
 </template>
@@ -346,5 +372,13 @@ function getFileUrl(file) {
     font-size: 15px;
     padding: 10px 12px;
   }
+}
+
+/* 文件上传错误提示样式 */
+.fade-enter-active, .fade-leave-active {
+  @apply transition-opacity duration-300;
+}
+.fade-enter, .fade-leave-to /* .fade-leave-active in <2.1.8 */ {
+  @apply opacity-0;
 }
 </style>
