@@ -7,6 +7,7 @@ const cors = require('cors');
 const { db, initDB } = require('./db');
 const multer = require('multer');
 const path = require('path');
+const fs = require('fs');
 
 const app = express();
 const server = http.createServer(app);
@@ -23,6 +24,12 @@ app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 
 // 初始化数据库
 initDB();
+
+// 确保 uploads 目录存在
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir);
+}
 
 // 注册
 app.post('/api/register', (req, res) => {
